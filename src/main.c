@@ -3,18 +3,30 @@
 
 int main(void) {
     char buffer[32];
+    ssize_t bytes;
 
-    printf("Type something: ");
+    printf("Type something and press Enter\n");
+    printf("Press Ctrl+D on an empty line to exit\n\n");
     fflush(stdout);
 
-    ssize_t bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
+    while((bytes = read(STDIN_FILENO, buffer, sizeof(buffer))) > 0){
+        printf("Received %zd bytes: ", bytes);
+        fflush(stdout);
 
-    if(bytes == -1) {
-        perror("Reading error");
+        if(write(STDOUT_FILENO, buffer, (size_t)bytes) == -1){
+            perror("Write failed");
+            return 1;
+        }
+
+        printf("\n");
+        fflush(stdout);
+    }
+
+    if(bytes == -1){
+        perror("Read failed");
         return 1;
     }
 
-    printf("%zd bytes received", bytes);
-
+    printf("End of input\n");
     return 0;
 }
