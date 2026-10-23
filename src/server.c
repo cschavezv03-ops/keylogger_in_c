@@ -22,7 +22,7 @@ int main(void){
     if(WSAStartup(WSA_VERSION_CODE, &wsadata) == 0){
         printf("WSA initialized successfully \n");
     }else{
-        printf("WSA initialization failed. Err code:%ld", GetLastError());
+        printf("WSA initialization failed. Err code:%d", WSAGetLastError());
         WSACleanup();
         return -1;
     }
@@ -30,7 +30,7 @@ int main(void){
     //CREATE SERVER SOCKET TO BIND
     serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(serverSocket == INVALID_SOCKET){
-        printf("Socket initialization failed. Err code:%ld", GetLastError());
+        printf("Socket initialization failed. Err code:%d", WSAGetLastError());
         WSACleanup();
         return -1;
     }
@@ -44,7 +44,7 @@ int main(void){
     //BIND SOCKET TO ADDRESS
     bindResult = bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr));
     if(bindResult == SOCKET_ERROR){
-        printf("Socket binding failed. Err code:%ld", GetLastError());
+        printf("Socket binding failed. Err code:%d", WSAGetLastError());
         closesocket(serverSocket);
         WSACleanup();
         return -1;
@@ -53,7 +53,7 @@ int main(void){
     }
 
     //LISTEN FOR THE CLIENT (VICTIM)
-    if(!listen(serverSocket, 1)){
+    if(listen(serverSocket, SOMAXCONN) != SOCKET_ERROR){
         printf("Listening for the clients...\n");
 
         //ACCEPT THE CLIENT, GET ITS ADDRESS AND CREATE A THREAD FOR IT
@@ -68,7 +68,7 @@ int main(void){
             TerminateThread(threadHandle, tExitCode);
         }
     }else{
-        printf("An error occurred during listening to clients. Err code:%ld", GetLastError());
+        printf("An error occurred during listening to clients. Err code:%d", WSAGetLastError());
         closesocket(serverSocket);
         WSACleanup();
     }
@@ -85,7 +85,6 @@ int main(void){
 
 DWORD WINAPI clientHandler(LPVOID params){
     (void)params;
-    BOOL thread_alive = TRUE;
     int bytes_transferred;
     CHAR char_to_recv;
 
@@ -95,7 +94,7 @@ DWORD WINAPI clientHandler(LPVOID params){
         bytes_transferred = recv(clientSocket, &char_to_recv, 1, 0);
         
         if(bytes_transferred > 0){
-            printf("%c", char_to_recv);
+            printf("Character received: %c\n", char_to_recv);
             fflush(stdout); 
         } else if (bytes_transferred == 0) {
             printf("\n[Client disconnected]\n");
