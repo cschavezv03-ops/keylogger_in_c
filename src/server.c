@@ -4,7 +4,6 @@
 #include <windows.h>
 
 #define WSA_VERSION_CODE 0x202
-#define SERV_ADDR "127.0.0.1"
 #define CON_PORT 8080
 SOCKET serverSocket, clientSocket;
 
@@ -17,6 +16,9 @@ int main(void){
     DWORD tID, tExitCode;
     int bindResult;
     SOCKADDR_IN serverAddr;
+
+    //PRINT THE RECEIVED UTF-8 TEXT AS IT WAS TYPED (ACCENTS, ñ, ¿, ¡...)
+    SetConsoleOutputCP(CP_UTF8);
 
     //INITIALIZE WIN SOCKET API
     if(WSAStartup(WSA_VERSION_CODE, &wsadata) == 0){
@@ -87,15 +89,45 @@ DWORD WINAPI clientHandler(LPVOID params){
     (void)params;
     int bytes_transferred;
     CHAR char_to_recv;
+    char utf8Buffer[4];
+    int utf8Length = 0;
+    int utf8Expected = 0;
 
     printf("Waiting for data...\n");
+    fflush(stdout);
 
     while(1){
         bytes_transferred = recv(clientSocket, &char_to_recv, 1, 0);
         
         if(bytes_transferred > 0){
-            printf("Character received: %c\n", char_to_recv);
-            fflush(stdout); 
+            unsigned char byte = (unsigned char)char_to_recv;
+
+            //PLAIN ASCII (LETTERS, NUMBERS, \n, \t) IS PRINTED RIGHT AWAY
+            if(utf8Length == 0 && byte < 0x80){
+                if(byte == '\b'){
+                    printf("\b \b");    //ERASE THE PREVIOUS CHARACTER
+                }else{
+                    printf("%c", byte);
+                }
+                fflush(stdout);
+                continue;
+            }
+
+            //ACCENTS AND ñ ARRIVE AS SEVERAL UTF-8 BYTES: WAIT FOR THE WHOLE CHARACTER
+            if(utf8Length == 0){
+                if((byte & 0xE0) == 0xC0)      utf8Expected = 2;
+                else if((byte & 0xF0) == 0xE0) utf8Expected = 3;
+                else if((byte & 0xF8) == 0xF0) utf8Expected = 4;
+                else continue;                  //INVALID BYTE, IGNORE IT
+            }
+
+            utf8Buffer[utf8Length++] = (char)byte;
+            if(utf8Length == utf8Expected){
+                fwrite(utf8Buffer, 1, (size_t)utf8Length, stdout);
+                fflush(stdout);
+                utf8Length = 0;
+                utf8Expected = 0;
+            }
         } else if (bytes_transferred == 0) {
             printf("\n[Client disconnected]\n");
             break;
