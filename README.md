@@ -213,8 +213,10 @@ Remove-Item -Recurse -Force "C:\ProgramData\kl"
   plus accents and AltGr symbols). The server switches the console to UTF-8 with
   `SetConsoleOutputCP(CP_UTF8)`.
 - The server prints a timestamp at the start of every captured line and writes
-  one timestamped entry per keystroke (including `[ENTER]`, `[TAB]` and
-  `[BACKSPACE]`) to `keylog.txt` in its working directory.
+  one timestamped entry per keystroke to `keylog.txt` in its working directory.
+  Special keys appear as `[ENTER]`, `[TAB]`, `[BACKSPACE]` and `[CLICK]`, so
+  nothing is erased from the log when the user backspaces. A mouse click starts
+  a new timestamped line, simulating that the user moved to another field.
 - Only physical keys are captured. Paste (`Ctrl+V`) and IME input are not.
 - `FreeConsole()` in `client.c` hides the window when it runs standalone. When
   launched by the service it has no effect.
