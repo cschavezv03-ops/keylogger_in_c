@@ -1,4 +1,6 @@
 keylogger
 *.out
 *.o
+*.exe
+keylog.txt
 .vscode

