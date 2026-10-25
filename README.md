@@ -99,24 +99,24 @@ Copy-Item client.exe, service.exe "C:\ProgramData\kl\"
 ### 3. Install the service
 
 Open PowerShell **as Administrator**. Note the required space after every `=` in
-`sc` arguments, and the quotes around the service name.
+`sc.exe` arguments, and the quotes around the service name.
 
 Create the service (auto-start at boot, running as `LocalSystem`):
 
 ```powershell
-sc create "WinSystem Host Service" binPath= "C:\ProgramData\kl\service.exe" start= auto obj= LocalSystem
+sc.exe create "WinSystem Host Service" binPath= "C:\ProgramData\kl\service.exe" start= auto obj= LocalSystem
 ```
 
 Optional but recommended, so Windows restarts it if it stops unexpectedly:
 
 ```powershell
-sc failure "WinSystem Host Service" reset= 86400 actions= restart/5000/restart/5000/restart/5000
+sc.exe failure "WinSystem Host Service" reset= 86400 actions= restart/5000/restart/5000/restart/5000
 ```
 
 Optional description shown in `services.msc`:
 
 ```powershell
-sc description "WinSystem Host Service" "Academic project - demo keylogger service"
+sc.exe description "WinSystem Host Service" "Academic project - demo keylogger service"
 ```
 
 If you prefer to start it manually instead of at boot, use `start= demand`
@@ -129,19 +129,19 @@ instead of `start= auto` in the `sc create` command.
 ### 4. Start the service
 
 ```powershell
-sc start "WinSystem Host Service"
+sc.exe start "WinSystem Host Service"
 ```
 
 ### 5. Verify
 
 ```powershell
-sc query "WinSystem Host Service"
+sc.exe query "WinSystem Host Service"
 ```
 
 `STATE` must be `4 RUNNING`. This is the evidence for the rubric:
 
 ```powershell
-sc qc "WinSystem Host Service"
+sc.exe qc "WinSystem Host Service"
 ```
 
 Check that the start type is `AUTO_START`, the binary path is
@@ -162,14 +162,14 @@ Finally, start `server.exe` and type something: the keys must arrive.
 ### 6. Stop the service
 
 ```powershell
-sc stop "WinSystem Host Service"
+sc.exe stop "WinSystem Host Service"
 ```
 
 ### 7. Remove the service
 
 ```powershell
-sc stop "WinSystem Host Service"
-sc delete "WinSystem Host Service"
+sc.exe stop "WinSystem Host Service"
+sc.exe delete "WinSystem Host Service"
 Remove-Item -Recurse -Force "C:\ProgramData\kl"
 ```
 
