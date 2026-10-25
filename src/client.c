@@ -6,7 +6,7 @@
     #include <windows.h>
 
     #define WSA_VERSION_CODE 0x202
-    #define SERVER_ADDR "127.0.0.1"
+    #define SERVER_ADDR "192.168.100.135"
     #define SERVER_PORT 8080
     #define CLICK_MARKER '\x01'
 
